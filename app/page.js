@@ -10,6 +10,13 @@ const teamNames = [
   { id: 5, name: "Shadow Protocol", description: "Covert code specialists" },
 ];
 
+// Loader Component
+const Loader = ({ size = 'md' }) => (
+  <div className={`flex justify-center items-center ${size === 'sm' ? 'py-1' : 'py-3'}`}>
+    <div className={`animate-spin rounded-full border-t-2 border-b-2 border-blue-500 ${size === 'sm' ? 'h-5 w-5' : 'h-8 w-8'}`}></div>
+  </div>
+);
+
 export default function VotePage() {
   const [voterName, setVoterName] = useState('');
   const [votes, setVotes] = useState([]);
@@ -17,19 +24,24 @@ export default function VotePage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [stats, setStats] = useState({ totalVoters: 0, winner: null });
   const [showHowItWorks, setShowHowItWorks] = useState(false);
+  const [isLoadingStats, setIsLoadingStats] = useState(true);
 
   // Fetch voting stats
   useEffect(() => {
     const fetchStats = async () => {
+      setIsLoadingStats(true);
       try {
         const res = await fetch('/api/results');
         const data = await res.json();
         setStats(data);
       } catch (error) {
         console.error('Error fetching results:', error);
+      } finally {
+        setIsLoadingStats(false);
       }
     };
     
+    fetchStats(); // Initial load
     const interval = setInterval(fetchStats, 5000);
     return () => clearInterval(interval);
   }, []);
@@ -95,7 +107,7 @@ export default function VotePage() {
                 <button
                   onClick={handleRandomVote}
                   disabled={remainingVotes <= 0}
-                  className={`flex-1 py-3 px-4 rounded-lg font-medium transition-all ${
+                  className={`flex-1 py-3 px-4 rounded-lg font-medium transition-all flex items-center justify-center ${
                     remainingVotes <= 0 
                       ? 'bg-gray-700/50 cursor-not-allowed' 
                       : 'bg-blue-600/90 hover:bg-blue-700/90'
@@ -107,13 +119,18 @@ export default function VotePage() {
                 <button
                   onClick={submitVotes}
                   disabled={votes.length !== 3 || !voterName.trim() || isSubmitting}
-                  className={`flex-1 py-3 px-4 rounded-lg font-medium transition-all ${
+                  className={`flex-1 py-3 px-4 rounded-lg font-medium transition-all flex items-center justify-center ${
                     votes.length !== 3 || !voterName.trim()
                       ? 'bg-gray-700/50 cursor-not-allowed'
                       : 'bg-green-600/90 hover:bg-green-700/90'
                   }`}
                 >
-                  {isSubmitting ? 'Submitting...' : 'Submit Votes'}
+                  {isSubmitting ? (
+                    <>
+                      <Loader size="sm" />
+                      <span className="ml-2">Submitting...</span>
+                    </>
+                  ) : 'Submit Votes'}
                 </button>
               </div>
             </div>
@@ -173,33 +190,41 @@ export default function VotePage() {
               </div>
             )}
 
-            <div className="grid grid-cols-2 gap-4 mb-4">
-              <div className="bg-black/30 p-3 rounded-lg text-center border border-gray-700/50">
-                <div className="text-2xl font-bold">{stats.totalVoters}</div>
-                <div className="text-xs text-gray-400">Voters</div>
-              </div>
-              <div className="bg-black/30 p-3 rounded-lg text-center border border-gray-700/50">
-                <div className="text-2xl font-bold">{stats.totalVoters * 3}</div>
-                <div className="text-xs text-gray-400">Total Votes</div>
-              </div>
-            </div>
-
-            {stats.winner ? (
-              <div className="bg-gradient-to-br from-blue-900/50 to-cyan-900/30 p-4 rounded-lg border border-cyan-500/30">
-                <h3 className="text-sm font-semibold text-cyan-300 mb-1">Current Winner</h3>
-                <p className="text-2xl font-bold">
-                  {teamNames.find(t => t.id === stats.winner)?.name}
-                </p>
-              </div>
-            ) : stats.totalVoters >= 2 ? (
-              <div className="bg-black/30 p-4 rounded-lg border border-yellow-500/30 text-center">
-                <p className="text-yellow-300">Calculating winner...</p>
+            {isLoadingStats ? (
+              <div className="flex justify-center items-center h-32">
+                <Loader />
               </div>
             ) : (
-              <div className="bg-black/30 p-4 rounded-lg border border-gray-700/50 text-center">
-                <p className="text-gray-400">Waiting for more voters</p>
-                <p className="text-xs mt-1">(Need ≥2 voters)</p>
-              </div>
+              <>
+                <div className="grid grid-cols-2 gap-4 mb-4">
+                  <div className="bg-black/30 p-3 rounded-lg text-center border border-gray-700/50">
+                    <div className="text-2xl font-bold">{stats.totalVoters}</div>
+                    <div className="text-xs text-gray-400">Voters</div>
+                  </div>
+                  <div className="bg-black/30 p-3 rounded-lg text-center border border-gray-700/50">
+                    <div className="text-2xl font-bold">{stats.totalVoters * 3}</div>
+                    <div className="text-xs text-gray-400">Total Votes</div>
+                  </div>
+                </div>
+
+                {stats.winner ? (
+                  <div className="bg-gradient-to-br from-blue-900/50 to-cyan-900/30 p-4 rounded-lg border border-cyan-500/30">
+                    <h3 className="text-sm font-semibold text-cyan-300 mb-1">Current Winner</h3>
+                    <p className="text-2xl font-bold">
+                      {teamNames.find(t => t.id === stats.winner)?.name}
+                    </p>
+                  </div>
+                ) : stats.totalVoters >= 2 ? (
+                  <div className="bg-black/30 p-4 rounded-lg border border-yellow-500/30 text-center">
+                    <p className="text-yellow-300">Calculating winner...</p>
+                  </div>
+                ) : (
+                  <div className="bg-black/30 p-4 rounded-lg border border-gray-700/50 text-center">
+                    <p className="text-gray-400">Waiting for more voters</p>
+                    <p className="text-xs mt-1">(Need ≥2 voters)</p>
+                  </div>
+                )}
+              </>
             )}
           </div>
 
