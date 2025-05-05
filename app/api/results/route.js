@@ -1,20 +1,18 @@
+// app/api/results/route.js
 import { MongoClient } from 'mongodb';
 
-export default async function handler(req, res) {
-  if (req.method !== 'GET') {
-    return res.status(405).json({ message: 'Method not allowed' });
-  }
-
+export async function GET() {
   const client = new MongoClient(process.env.MONGODB_URI);
   try {
     await client.connect();
     const db = client.db();
     const allVotes = await db.collection('votes').find().toArray();
+    
+    // Count unique voters
+    const uniqueVoters = [...new Set(allVotes.map(vote => vote.voterName))].length;
 
-    // Flatten all votes into a single array
+    // Calculate mode
     const votes = allVotes.flatMap(entry => entry.votes);
-
-    // Calculate mode (most frequent vote)
     const frequency = {};
     let maxCount = 0;
     let winner = null;
@@ -27,9 +25,18 @@ export default async function handler(req, res) {
       }
     });
 
-    res.status(200).json({ winner });
+    return new Response(JSON.stringify({ 
+      winner: uniqueVoters >= 2 ? winner : null,
+      totalVoters: uniqueVoters
+    }), {
+      status: 200,
+      headers: { 'Content-Type': 'application/json' },
+    });
   } catch (error) {
-    res.status(500).json({ message: 'Error fetching results' });
+    return new Response(JSON.stringify({ message: 'Error fetching results' }), {
+      status: 500,
+      headers: { 'Content-Type': 'application/json' },
+    });
   } finally {
     await client.close();
   }
